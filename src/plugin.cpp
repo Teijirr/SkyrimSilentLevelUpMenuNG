@@ -14,47 +14,85 @@ public:
 			return RE::BSEventNotifyControl::kContinue;
 		}
 
+		// Level up menu opening
 		if (a_event->menuName == RE::LevelUpMenu::MENU_NAME) {
 			if (auto* ui = RE::UI::GetSingleton()) {
 				if (auto menu = ui->GetMenu(RE::LevelUpMenu::MENU_NAME)) {
 					if (menu->uiMovie) {
+						// Hide UI
 						menu->uiMovie->SetVisible(false);
+
+						SKSE::GetTaskInterface()->AddTask([]() {
+							auto* ui = RE::UI::GetSingleton();
+							if (!ui || !ui->IsMenuOpen(RE::LevelUpMenu::MENU_NAME)) {
+								return;
+							}
+
+							auto menu = ui->GetMenu(RE::LevelUpMenu::MENU_NAME);
+							if (!menu || !menu->uiMovie) {
+								return;
+							}
+
+							// Pick magicka and accept
+							RE::GFxValue emptyArgs;
+							menu->uiMovie->CreateArray(&emptyArgs);
+							RE::GFxValue args[2];
+							args[0].SetString("addMagicka");
+							args[1] = emptyArgs;
+							RE::GFxValue result;
+							menu->uiMovie->Invoke("_global.gfx.io.GameDelegate.call", &result, args, 2);
+						});
 					}
 				}
 			}
-
-			// First Enter key to select the attribute (e.g., Magicka)
-			SKSE::GetTaskInterface()->AddTask([]() {
-				//SendScaleformEnter(RE::LevelUpMenu::MENU_NAME);
-				//SendNativeAcceptEvent();
-				SendMenuAcceptInput();
-			});
 		}
 		// Confirmation box opening right after
 		else if (a_event->menuName == RE::MessageBoxMenu::MENU_NAME) {
 			if (auto* ui = RE::UI::GetSingleton(); ui && ui->IsMenuOpen(RE::LevelUpMenu::MENU_NAME)) {
 				if (auto menu = ui->GetMenu(RE::MessageBoxMenu::MENU_NAME)) {
 					if (menu->uiMovie) {
+						// Hide UI
 						menu->uiMovie->SetVisible(false);
+
+						// Accept
+						SKSE::GetTaskInterface()->AddTask([]() {
+							auto* ui = RE::UI::GetSingleton();
+							if (!ui || !ui->IsMenuOpen(RE::MessageBoxMenu::MENU_NAME)) {
+								return;
+							}
+
+							auto menu = ui->GetMenu(RE::MessageBoxMenu::MENU_NAME);
+							if (!menu || !menu->uiMovie) {
+								return;
+							}
+
+							// Get Current Magicka
+							float originalMagicka = 0.0f;
+							auto* player = RE::PlayerCharacter::GetSingleton();
+							RE::ActorValueOwner* avOwner = player ? player->AsActorValueOwner() : nullptr;
+							if (avOwner) {
+								originalMagicka = avOwner->GetActorValue(RE::ActorValue::kMagicka);
+							}
+
+							RE::GFxValue indexArray;
+							menu->uiMovie->CreateArray(&indexArray);
+							RE::GFxValue zero(0.0);
+							indexArray.SetElement(0, zero);
+
+							RE::GFxValue args[2];
+							args[0].SetString("buttonPress");
+							args[1] = indexArray;
+
+							RE::GFxValue result;
+							menu->uiMovie->Invoke("_global.gfx.io.GameDelegate.call", &result, args, 2);
+
+							// Restore Magicka
+							if (avOwner) {
+								avOwner->SetActorValue(RE::ActorValue::kMagicka, originalMagicka);
+							}
+						});
 					}
 				}
-
-				// Second Enter key to confirm the choice
-				SKSE::GetTaskInterface()->AddTask([]() {
-					//SendScaleformEnter(RE::MessageBoxMenu::MENU_NAME);
-					//SendNativeAcceptEvent();
-					SendMenuAcceptInput();
-
-					auto player = RE::PlayerCharacter::GetSingleton();
-
-					if (player) {
-						auto avOwner = player->AsActorValueOwner();
-
-						if (avOwner) {
-							avOwner->ModActorValue(RE::ActorValue::kMagicka, -10.0f);
-						}
-					}
-				});
 			}
 		}
 
@@ -63,125 +101,6 @@ public:
 
 private:
 	LevelUpMenuCloser() = default;
-
-	/*
-	static void SendScaleformEnter(const RE::BSFixedString& a_menuName) {
-		auto* ui = RE::UI::GetSingleton();
-		if (!ui) return;
-
-		auto menu = ui->GetMenu(a_menuName);
-		if (!menu || !menu->uiMovie) return;
-
-		RE::GFxKeyEvent keyDownEvent;
-		keyDownEvent.type = RE::GFxEvent::EventType::kKeyDown;
-		keyDownEvent.keyCode = RE::GFxKey::Code::kReturn;
-
-		RE::GFxKeyEvent keyUpEvent;
-		keyUpEvent.type = RE::GFxEvent::EventType::kKeyUp;
-		keyUpEvent.keyCode = RE::GFxKey::Code::kReturn;
-
-		menu->uiMovie->HandleEvent(keyDownEvent);
-		menu->uiMovie->HandleEvent(keyUpEvent);
-	}
-	*/
-	/*
-	static void SendNativeAcceptEvent() {
-		// Création de l'événement natif de validation
-		auto* buttonEvent = RE::ButtonEvent::Create(
-			RE::INPUT_DEVICE::kKeyboard,
-			"Accept",
-			0x1C,
-			1.0f,
-			0.0f
-		);
-
-		if (!buttonEvent) return;
-
-		buttonEvent->next = nullptr;
-
-		auto* menuControls = RE::MenuControls::GetSingleton();
-		if (menuControls) {
-			// Cast vers l'interface de base pour exposer ProcessEvent
-			auto* inputSink = static_cast<RE::BSTEventSink<RE::InputEvent*>*>(menuControls);
-
-			// Correction ici : On crée le pointeur de base requis par la signature
-			RE::InputEvent* inputEvent = buttonEvent;
-
-			// On passe l'adresse du pointeur (&inputEvent) pour obtenir le type RE::InputEvent* const*
-			inputSink->ProcessEvent(&inputEvent, nullptr);
-		}
-	}
-	*/
-
-	static void ProcessFlatAcceptInput() {
-		auto* buttonEvent = RE::ButtonEvent::Create(
-			RE::INPUT_DEVICE::kKeyboard,
-			"Accept",
-			0x1C,
-			1.0f,
-			0.0f
-		);
-
-		if (!buttonEvent) return;
-		buttonEvent->next = nullptr;
-
-		auto* menuControls = RE::MenuControls::GetSingleton();
-		if (menuControls) {
-			auto* inputSink = static_cast<RE::BSTEventSink<RE::InputEvent*>*>(menuControls);
-			RE::InputEvent* inputEvent = buttonEvent;
-			inputSink->ProcessEvent(&inputEvent, nullptr);
-		}
-	}
-
-	static void SimulateButtonPress(WORD vkey) {
-		HWND hwnd = ::FindWindowExA(nullptr, nullptr, "Skyrim VR", nullptr);
-		if (hwnd) {
-			HWND foreground = GetForegroundWindow();
-			if (foreground && hwnd == foreground) {
-				INPUT input = {};
-				input.type = INPUT_KEYBOARD;
-				input.ki.wScan = static_cast<WORD>(MapVirtualKeyA(vkey, MAPVK_VK_TO_VSC));
-				input.ki.time = 0;
-				input.ki.dwExtraInfo = 0;
-				input.ki.wVk = vkey;
-
-				input.ki.dwFlags = 0;
-				SendInput(1, &input, sizeof(INPUT));
-
-				::Sleep(30);
-
-				input.ki.dwFlags = KEYEVENTF_KEYUP;
-				SendInput(1, &input, sizeof(INPUT));
-			}
-		}
-	}
-
-	static void ProcessVRAcceptInput() {
-		SKSE::log::trace("ProcessVRAcceptInput: Spawning detached macro thread.");
-
-		std::thread t1([]() {
-			SKSE::log::trace("ProcessVRAcceptInput Thread: Pressing 'E' to select Magicka.");
-			SimulateButtonPress(0x45);
-
-			::Sleep(100);
-
-			SKSE::log::trace("ProcessVRAcceptInput Thread: Pressing 'Enter' to confirm choice.");
-			SimulateButtonPress(VK_RETURN);
-
-			SKSE::log::info("ProcessVRAcceptInput Thread: E -> Enter sequence completed successfully.");
-			});
-
-		t1.detach();
-	}
-
-	static void SendMenuAcceptInput() {
-		if (REL::Module::IsVR()) {
-			ProcessVRAcceptInput();
-		}
-		else {
-			ProcessFlatAcceptInput();
-		}
-	}
 };
 
 void OnDataLoaded() {
