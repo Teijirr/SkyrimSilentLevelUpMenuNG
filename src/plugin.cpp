@@ -19,8 +19,10 @@ public:
 			if (auto* ui = RE::UI::GetSingleton()) {
 				if (auto menu = ui->GetMenu(RE::LevelUpMenu::MENU_NAME)) {
 					if (menu->uiMovie) {
-						// Hide UI
-						menu->uiMovie->SetVisible(false);
+						// Hide UI if not Skyrim VR
+						if (!REL::Module::IsVR()) {
+							menu->uiMovie->SetVisible(false);
+						}
 
 						SKSE::GetTaskInterface()->AddTask([]() {
 							auto* ui = RE::UI::GetSingleton();
@@ -51,10 +53,11 @@ public:
 			if (auto* ui = RE::UI::GetSingleton(); ui && ui->IsMenuOpen(RE::LevelUpMenu::MENU_NAME)) {
 				if (auto menu = ui->GetMenu(RE::MessageBoxMenu::MENU_NAME)) {
 					if (menu->uiMovie) {
-						// Hide UI
-						menu->uiMovie->SetVisible(false);
+						// Hide UI if not Skyrim VR
+						if (!REL::Module::IsVR()) {
+							menu->uiMovie->SetVisible(false);
+						}
 
-						// Accept
 						SKSE::GetTaskInterface()->AddTask([]() {
 							auto* ui = RE::UI::GetSingleton();
 							if (!ui || !ui->IsMenuOpen(RE::MessageBoxMenu::MENU_NAME)) {
@@ -66,29 +69,32 @@ public:
 								return;
 							}
 
-							// Get Current Magicka
-							float originalMagicka = 0.0f;
+							// Get Current Magicka (before)
+							float magickaBefore = 0.0f;
 							auto* player = RE::PlayerCharacter::GetSingleton();
 							RE::ActorValueOwner* avOwner = player ? player->AsActorValueOwner() : nullptr;
 							if (avOwner) {
-								originalMagicka = avOwner->GetActorValue(RE::ActorValue::kMagicka);
+								magickaBefore = avOwner->GetActorValue(RE::ActorValue::kMagicka);
 							}
 
+							// Accept
 							RE::GFxValue indexArray;
 							menu->uiMovie->CreateArray(&indexArray);
 							RE::GFxValue zero(0.0);
 							indexArray.SetElement(0, zero);
-
 							RE::GFxValue args[2];
 							args[0].SetString("buttonPress");
 							args[1] = indexArray;
-
 							RE::GFxValue result;
 							menu->uiMovie->Invoke("_global.gfx.io.GameDelegate.call", &result, args, 2);
 
 							// Restore Magicka
 							if (avOwner) {
-								avOwner->SetActorValue(RE::ActorValue::kMagicka, originalMagicka);
+								float magickaAfter = avOwner->GetActorValue(RE::ActorValue::kMagicka);
+								float consumed = magickaBefore - magickaAfter;
+								if (consumed > 0.0f) {
+									avOwner->RestoreActorValue(RE::ACTOR_VALUE_MODIFIER::kDamage, RE::ActorValue::kMagicka, consumed);
+								}
 							}
 						});
 					}
