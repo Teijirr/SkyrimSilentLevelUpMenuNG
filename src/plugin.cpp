@@ -90,11 +90,7 @@ public:
 
 							// Restore Magicka
 							if (avOwner) {
-								float magickaAfter = avOwner->GetActorValue(RE::ActorValue::kMagicka);
-								float consumed = magickaBefore - magickaAfter;
-								if (consumed > 0.0f) {
-									avOwner->RestoreActorValue(RE::ACTOR_VALUE_MODIFIER::kDamage, RE::ActorValue::kMagicka, consumed);
-								}
+								avOwner->SetBaseActorValue(RE::ActorValue::kMagicka, magickaBefore);
 							}
 						});
 					}
