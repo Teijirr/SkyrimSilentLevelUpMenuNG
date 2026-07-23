@@ -74,7 +74,7 @@ public:
 							auto* player = RE::PlayerCharacter::GetSingleton();
 							RE::ActorValueOwner* avOwner = player ? player->AsActorValueOwner() : nullptr;
 							if (avOwner) {
-								magickaBefore = avOwner->GetActorValue(RE::ActorValue::kMagicka);
+								magickaBefore = avOwner->GetBaseActorValue(RE::ActorValue::kMagicka);
 							}
 
 							// Accept
